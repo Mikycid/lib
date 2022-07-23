@@ -1,19 +1,22 @@
-#ifndef DEF_CUSTOM_STRINGS_C
-#define DEF_CUSTOM_STRINGS_C
+#ifndef DEF_CUSTOM_STRINGS_CPP
+#define DEF_CUSTOM_STRINGS_CPP
 
-#include <string.h>
+#include <cstring>
+#include <cstdlib>
 
 char **dynamicSplit(char *__restrict__ src, char* __restrict__ sep, size_t sepSize)
 {
     // Split a string by sep, return a 2D array with the result
     size_t size = strlen(src);
     char current[size];
-    int x = 5;
-    char **result = (char**) malloc(x * sizeof(char*));
+    size_t x = 5;
 
+    char **result = (char**) malloc(x * sizeof(char*));
     memset(current, 0, size);
+
     size_t nFound = 0, nSplit = 0, nMinus = 0, maxStringSize = 0;
     size_t *sizeOfEach = (size_t *) malloc(x * sizeof(size_t));
+
     for(size_t i = 0; i < size; i++)
     {
         current[i - nMinus] = src[i];
@@ -33,6 +36,7 @@ char **dynamicSplit(char *__restrict__ src, char* __restrict__ sep, size_t sepSi
                 sizeOfEach[nSplit] = sizeOfCurrent;
                 if(sizeOfCurrent > maxStringSize)
                     maxStringSize = sizeOfCurrent;
+
                 result[nSplit] = (char*) malloc(sizeOfCurrent * sizeof(char));
                 memcpy(result[nSplit], current, sizeOfCurrent);
                 memset(current, 0, sizeOfCurrent);
@@ -48,7 +52,7 @@ char **dynamicSplit(char *__restrict__ src, char* __restrict__ sep, size_t sepSi
             if(nSplit > x)
             {
                 x += 1;
-                result = (char **)realloc(result, x);
+                result = (char **)realloc(result, x * sizeof(char*));
             }
             result[nSplit] = (char*) malloc((i - nMinus + 1) * sizeof(char));
             memcpy(result[nSplit], current, i - nMinus + 1);
@@ -65,7 +69,8 @@ char **dynamicSplit(char *__restrict__ src, char* __restrict__ sep, size_t sepSi
     return result;
 }
 
-void split(char *__restrict__ src, size_t sizeDest, char dest[][sizeDest], size_t size, char* __restrict__ sep, size_t sepSize)
+template<size_t sizeDest>
+void split(char *__restrict__ src, char dest[][sizeDest], size_t size, char* __restrict__ sep, size_t sepSize)
 {
     // Split a string by sep, insert the result into a 2D array
     char current[size];
