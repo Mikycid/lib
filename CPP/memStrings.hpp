@@ -3,6 +3,7 @@
 
 #include <cstring>
 #include <cstdlib>
+#include <cstdio>
 
 /*
     This lib makes it easy to do string operation on char type.
@@ -20,24 +21,23 @@
 
 long getIndex(char *__restrict__ ptr, void **__restrict__ arr, size_t arrLength);
 void reIndex(void **arr, size_t arrLength, size_t index);
+int sum(int *arr, size_t arrLength);
 
 void store(char **str = nullptr, char **strArr = nullptr, size_t strArrLength = 0, bool free_p = false, char *oldAddress = nullptr, void *freeOne = nullptr)
 {
     static char ***storageArr;
     static char **storage;
     static size_t storageLengthX, storageLength;
-    static size_t yLength;
+    static size_t *yLength;
 
     if(storageLength && str && oldAddress)
     {
         long index = getIndex(oldAddress, (void**)storage, storageLength);
         if(index >= 0)
         {
-            printf("on l'a eu ! : %s et la size : %lu\n", storage[index], storageLength);
             free(storage[index]);
             reIndex((void**)storage, storageLength, index);
             storageLength--;
-            printf("nouvelle size : %lu \n", storageLength);
         }
     }
 
@@ -58,11 +58,15 @@ void store(char **str = nullptr, char **strArr = nullptr, size_t strArrLength = 
             index = getIndex(strPtr, (void**)storageArr, storageLengthX);
             if(index >= 0)
             {
-                for(size_t i = 0; i <= yLength; i++)
+                printf("y length : %lu\n", yLength[index]);
+                for(size_t i = 0; i < yLength[index]; i++)
                 {
+                    printf("trouvé ! : %li et %s \n", index, storageArr[index][i]);
                     free(storageArr[index][i]);
                 }
                 free(storageArr[index]);
+                printf("on reindex y à l'index : %lu", yLength[index]);
+                reIndex((void**)yLength, storageLengthX, index);
                 reIndex((void**)storageArr, storageLengthX, index);
                 storageLengthX--;
             }
@@ -73,12 +77,12 @@ void store(char **str = nullptr, char **strArr = nullptr, size_t strArrLength = 
     {
         if(str && !storageLength)
         {
-            storage = (char **) malloc(sizeof(char**));
+            storage = (char **) malloc(sizeof(char*));
             storageLength = 0;
         }
         if(str && storageLength)
         {
-            storage = (char **) realloc(storage, sizeof(char**) * storageLength + 1);
+            storage = (char **) realloc(storage, sizeof(char*) * storageLength + 1);
         }
         if(str)
         {
@@ -91,21 +95,27 @@ void store(char **str = nullptr, char **strArr = nullptr, size_t strArrLength = 
         if(strArr && !storageLengthX)
         {
             storageArr = (char ***) malloc(sizeof(char**));
+            yLength = (size_t *) malloc(sizeof(size_t));
             storageLengthX = 0;
         }
 
         if(strArr && storageLengthX)
         {
+            char ***tmp = storageArr;
             storageArr = (char ***) realloc(storage, (storageLengthX + 1) * sizeof(char**));
+            storageArr = tmp;
+            if(storageArr == nullptr)
+                printf("Failed to allocate");
+            yLength = (size_t *) realloc(yLength, (storageLengthX + 1) * sizeof(size_t));
         }
 
         if(strArr)
         {
             
-
             //storageArr[storageLengthX] = (char**) malloc(strArrLength * sizeof(char*));
             storageArr[storageLengthX] = strArr;
-            yLength += strArrLength;
+            yLength[storageLengthX] = strArrLength;
+
             
             storageLengthX += 1;
         }
@@ -115,23 +125,22 @@ void store(char **str = nullptr, char **strArr = nullptr, size_t strArrLength = 
     }
     else
     {
-        printf("on free storage, la size : %lu \n", storageLength);
+        printf(" on free ALL !\n");
         for(size_t i = 0; i < storageLength; i++)
         {
-            printf("freeing : %s\n", storage[i]);
             if(storage[i])
                 free(storage[i]);
-            printf("c'est bon c'est free\n");
         }
-        printf("on free storageArr, la size : %lu\n", storageLengthX);
+        
         for(size_t i = 0; i < storageLengthX; i++)
         {
+
+            printf("il a une size de : %lu\n", yLength[i]);
             if(storageArr[i])
             {
-                printf("on test \n");
-                for(size_t j = 0; j <= yLength; j++)
+                for(size_t j = 0; j <= yLength[i]; j++)
                 {
-                    printf("ben oui %s\n", storageArr[i][j]);
+                    printf("on free : %s\n", storageArr[i][j]);
                     if(storageArr[i][j])
                         free(storageArr[i][j]);
                 }
@@ -143,10 +152,12 @@ void store(char **str = nullptr, char **strArr = nullptr, size_t strArrLength = 
 
         free(storage);
         free(storageArr);
+        free(yLength);
 
         storageArr = nullptr;
         storage = nullptr;
-        storageLengthX = 0, storageLength = 0, yLength = 0;
+        storageLengthX = 0, storageLength = 0;
+        yLength = nullptr;
     }
     
 }
@@ -173,7 +184,7 @@ char **dynamicSplit(char *__restrict__ src, char* __restrict__ sep, size_t sepSi
 
     size_t nFound = 0, nSplit = 0, maxStringSize = 0;
     int nMinus = 0;
-    int finalSize = 1;
+    int finalSize = x;
 
     for(int i = 0; i < size; i++)
     {
@@ -191,8 +202,6 @@ char **dynamicSplit(char *__restrict__ src, char* __restrict__ sep, size_t sepSi
                 }
 
                 int sizeOfCurrent = i - nMinus - nFound + 1;
-                printf("current : %d \n", sizeOfCurrent);
-                printf("and : %s \n", current);
                 if(sizeOfCurrent <= 0)
                 {
                     result[nSplit] = (char*) malloc(sizeof(char));
@@ -212,6 +221,7 @@ char **dynamicSplit(char *__restrict__ src, char* __restrict__ sep, size_t sepSi
                     memcpy(result[nSplit], current, sizeOfCurrent);
                     
                 }
+                printf("str : %s\n", result[nSplit]);
                 memset(current, 0, sizeof(current));
                 nMinus = i + 1;
                 nSplit++;
@@ -231,12 +241,16 @@ char **dynamicSplit(char *__restrict__ src, char* __restrict__ sep, size_t sepSi
                 result = (char **)realloc(result, x * sizeof(char*));
             }
             result[nSplit] = (char*) malloc((i - nMinus + 1) * sizeof(char));
+
             memset(result[nSplit], 0, i - nMinus + 2);
             memcpy(result[nSplit], current, i - nMinus + 1);
+
+            printf("str : %s\n", result[nSplit]);
         }
 
     }
-    printf("la final size : %d\n", finalSize);
+    printf("arr size : %lu \n", x);
+    printf("less : %d\n", finalSize);
     store(nullptr, result, x - abs(finalSize));
     return result;
 }
@@ -308,6 +322,16 @@ void reIndex(void **arr, size_t arrLength, size_t index)
     {
         arr[index] = arr[index + 1];
     }
+}
+
+int sum(int *arr, size_t arrLength)
+{
+    int result = 0;
+    for(size_t i = 0; i <= arrLength; i++)
+    {
+        result += arr[i];
+    }
+    return result;
 }
 
 #endif
