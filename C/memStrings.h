@@ -1,33 +1,23 @@
-#ifndef DEF_CUSTOM_STRINGS_CPP
-#define DEF_CUSTOM_STRINGS_CPP
+#ifndef DEF_CUSTOM_STRINGS_C
+#define DEF_CUSTOM_STRINGS_C
 
-#include <cstring>
-#include <cstdlib>
-#include <cstdio>
+#include <string.h>
+#include <stdint.h>
 
-/*
-    This lib makes it easy to do string operation on char type.
-    Everything allocated dynamically gets stored in an array, and can be freed whenever needed
-    just by calling freeAll()
-    Every function called using dynamic allocation is not freed, you have to call the freeAll() when you no longer need the memory.
-    You can also use freeOne() if you want to free just one variable.
-    Never free yourself without one of those funcs or it'll result in an unpredictable behaviour.
+#ifndef true
+#define true 1
+#endif
+#ifndef false
+#define false 0
+#endif
 
-    List of dynamic allocation methods :
-        - dynamicSplit
-        - assign
 
-    List of non-dynamic methods :
-        - split
-*/
-namespace memStrings {
-    static long getIndex(char *__restrict__ ptr, void **__restrict__ arr, size_t arrLength);
+static long getIndex(char *__restrict__ ptr, void **__restrict__ arr, size_t arrLength);
     static void reIndex(void **arr, size_t arrLength, size_t index);
     static int sum(int *arr, size_t arrLength);
     static void assign(char *__restrict__ src, char **__restrict__ dest);
-    static void assign(const char *__restrict__ src, char **__restrict__ dest);
 
-    static void store(char **str = nullptr, char **strArr = nullptr, size_t strArrLength = 0, bool free_p = false, char *oldAddress = nullptr, void *freeOne = nullptr)
+    static void store(char **str, char **strArr, size_t strArrLength, char free_p, char *oldAddress, void *freeOne)
     {
         static char ***storageArr;
         static char **storage;
@@ -104,7 +94,7 @@ namespace memStrings {
             {
                 storageArr = (char ***) realloc(storageArr, (storageLengthX + 1) * sizeof(char**));
 
-                if(storageArr == nullptr)
+                if(storageArr == NULL)
                     printf("Failed to allocate");
                 yLength = (size_t *) realloc(yLength, (storageLengthX + 1) * sizeof(size_t));
             }
@@ -159,27 +149,27 @@ namespace memStrings {
 
                 free(yLength);
             }
-            storageArr = nullptr;
-            storage = nullptr;
+            storageArr = NULL;
+            storage = NULL;
             storageLengthX = 0, storageLength = 0;
-            yLength = nullptr;
+            yLength = NULL;
         }
         
     }
 
     static void freeAll()
     {
-        store(nullptr, nullptr, 0, true);
+        store(NULL, NULL, 0, true, NULL, NULL);
     }
 
     static void freeOne(void *ptr)
     {
-        store(nullptr, nullptr, 0, false, nullptr, ptr);
+        store(NULL, NULL, 0, false, NULL, ptr);
     }
 
-    static char **dynamicSplit(char *__restrict__ src, char* __restrict__ sep, size_t sepSize)
+    static char **dynamicSplit(char *__restrict__ src, char* __restrict__ sep, size_t sepSize, uint32_t max)
     {
-        // Split a string by sep, return a 2D array with the result
+        // Split a string by sep, returns a 2D array with the result
         size_t size = strlen(src);
         char current[size];
         size_t x = 5;
@@ -237,7 +227,7 @@ namespace memStrings {
             } else {
                 nFound = 0;
             }
-            if(i == strlen(src) - 1)
+            if(i == strlen(src) - 1 || (nSplit >= max && max >= 0))
             {
                 if(nSplit > x)
                 {
@@ -248,47 +238,14 @@ namespace memStrings {
 
                 memset(result[nSplit], 0, i - nMinus + 2);
                 memcpy(result[nSplit], current, i - nMinus + 1);
-
+                break;
             }
 
         }
-        store(nullptr, result, x - abs(finalSize));
+        store(NULL, result, x - abs(finalSize), 0, NULL, NULL);
         return result;
     }
 
-    template<size_t sizeDest>
-    static void split(char *__restrict__ src, char dest[][sizeDest], size_t size, char* __restrict__ sep, size_t sepSize)
-    {
-        // Split a string by sep, insert the result into a 2D array
-        char current[size];
-
-        memset(current, 0, size);
-        size_t nFound = 0, nSplit = 0, nMinus = 0;
-
-        for(size_t i = 0; i < strlen(src); i++)
-        {
-            current[i - nMinus] = src[i];
-            if(current[i - nMinus] == sep[nFound])
-            {
-                nFound++;
-                if(nFound == sepSize - 1)
-                {
-                    memset(dest[nSplit], 0, sizeDest);
-                    memcpy(dest[nSplit], current, i - nMinus - nFound + 1);
-                    memset(current, 0, size);
-                    nMinus = i + 1;
-                    nSplit++;
-                    nFound = 0;
-                }
-            } else {
-                nFound = 0;
-            }
-
-        }
-
-        memset(dest[nSplit], 0, sizeDest);
-        memcpy(dest[nSplit], current, size);
-    }
 
     static void assign(char *__restrict__ src, char **__restrict__ dest)
     {
@@ -300,22 +257,31 @@ namespace memStrings {
         strcat(tmp, src);
         *dest = tmp;
 
-        store(dest, nullptr, 0, false, oldAddress);
+        store(dest, NULL, 0, false, oldAddress, NULL);
     }
 
-    static void assign(const char *__restrict__ src, char **__restrict__ dest)
+    static char *concat(char *__restrict__ str1, char *__restrict__ str2, size_t sizeofStr1, size_t sizeofStr2)
     {
-        char oldAddress[128];
-        sprintf(oldAddress, "%p", *dest);
+        size_t totalSize = sizeofStr1 + sizeofStr2;
+        char *result = (char*) malloc(totalSize);
 
-        char *tmp = (char *) malloc(strlen(src) * sizeof(char));
-        memset(tmp, 0, strlen(src));
-        //strcpy(tmp, src);
-        strcat(tmp, src);
-        *dest = tmp;
-
-        store(dest, nullptr, 0, false, oldAddress);
+        printf("str 1 :%s\n", str1);
+        printf("%lu\n", sizeofStr1);
+        printf("str 2 : %s\n", str2);
+        printf("%lu\n", sizeofStr2);
+        size_t i, j;
+        for(i = 0; i < sizeofStr1; i++)
+        {
+            result[i] = str1[i];
+        }
+        for(j = 0; j < sizeofStr2; j++)
+        {
+            result[i] = str2[j];
+        }
+        store(&result, NULL, 0, 0, NULL, NULL);
+        return result;
     }
+
 
     static long getIndex(char *__restrict__ ptr, void **__restrict__ arr, size_t arrLength)
     {
@@ -348,7 +314,38 @@ namespace memStrings {
         }
         return result;
     }
-};
 
+void split(char *__restrict__ src, size_t sizeDest, char dest[][sizeDest], size_t size, char* __restrict__ sep, size_t sepSize)
+{
+    // Split a string by sep, insert the result into a 2D array
+    char current[size];
+
+    memset(current, 0, size);
+    size_t nFound = 0, nSplit = 0, nMinus = 0;
+
+    for(size_t i = 0; i < strlen(src); i++)
+    {
+        current[i - nMinus] = src[i];
+        if(current[i - nMinus] == sep[nFound])
+        {
+            nFound++;
+            if(nFound == sepSize - 1)
+            {
+                memset(dest[nSplit], 0, sizeDest);
+                memcpy(dest[nSplit], current, i - nMinus - nFound + 1);
+                memset(current, 0, size);
+                nMinus = i + 1;
+                nSplit++;
+                nFound = 0;
+            }
+        } else {
+            nFound = 0;
+        }
+
+    }
+
+    memset(dest[nSplit], 0, sizeDest);
+    memcpy(dest[nSplit], current, size);
+}
 
 #endif
