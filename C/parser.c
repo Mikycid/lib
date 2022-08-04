@@ -5,9 +5,9 @@
 #include "memStrings.h"
 #include "parser.h"
 
-Config readConf(char *path)
+Config *readConf(char *path)
 {
-    Config conf;
+    Config *conf = malloc(sizeof(conf));
     FILE *fp = fopen(path, "rb");
     ssize_t read;
     if(fp == NULL)
@@ -29,7 +29,7 @@ Config readConf(char *path)
         else if(current == '[')
         {
             current = fgetc(fp);
-
+            
             while(current != ']' && current != '\n')
             {
                 if(current == EOF)
@@ -47,15 +47,18 @@ Config readConf(char *path)
                 if(nScopes > -1)
                 {
                     printf("on est dedans \n");
-                    conf.scopes = (Scope *) realloc(conf.scopes, sizeof(Scope) * nScopes);
+                    conf->scopes = (Scope *) realloc(conf->scopes, sizeof(Scope) * nScopes);
                 }
                 else
-                    conf.scopes = (Scope *) malloc(sizeof(Scope));
+                {
+
+                    conf->scopes = (Scope *) malloc(sizeof(Scope));
+                    nScopes = 0;
+                }
                 printf("avant d'assigner\n");
-                assign(line, &conf.scopes[nScopes].name);
-                printf("apres assigner\n");
-                memset(line, 0, sizeof(line));
-                printf("apres memset\n");
+                assign(line, &conf->scopes[nScopes].name);
+                printf("apres assigner : %d : %s\n", nScopes, conf->scopes[nScopes].name);
+                memset(line, '\0', strlen(line));
                 counter = 0;
 
                 insideScope = 1;
@@ -64,27 +67,46 @@ Config readConf(char *path)
         }
         else if(insideScope)
         {
-            char saved = current;
-            getline(&line, &len, fp);
-            char *varLine = concat(&saved, line, sizeof(saved), len);
-            char **variable = dynamicSplit(line, "=", 1, 1);
+            line[counter] = current;
+            printf("on a eu : %s\n", line);
+            while((current = fgetc(fp)) != EOF)
+            {
+                if(current == '\n')
+                    break;
+                counter++;
+                line[counter] = current;
+                printf("current : %c\n", current);
+                
+            }
+            printf("line : %s\n", line);
+            char **variable = dynamicSplit(line, "=", sizeof("="), 1);
+            printf("split ok\n");
+            memset(line, '\0', strlen(line));
+            counter = 0;
             if(strcmp(variable[0], line) != 0)
             {
-                conf.scopes[nScopes].variables = variable;
+                assign_gc(variable, &conf->scopes[nScopes].variables, 2, conf->scopes[nScopes].nVariables);
+                printf("l'adresse avant : %p\n", conf->scopes[nScopes].variables);
+                printf("la variable : %s = %s\n", conf->scopes[nScopes].variables[0][0], conf->scopes[nScopes].variables[0][1]);
             }
         }
         printf("%c", current);
     }
     fclose(fp);
+
     if(line)
         free(line);
-    freeAll();
 
+    printf("l'adresse encore avant : %p", conf);
     return conf;
 }
 int main(int argc, char* argv[])
 {
-    Config conf = readConf("test.conf");
-    printf("%s", getConfVariable(&conf.scopes[getScopeIndex(&conf, "MYSCOPE")], "abc"));
+    Config *conf = readConf("test.conf");
+    printf("adresse avant : %p\n", conf);
+
+    printf("%s", getConfVariable(&conf->scopes[getScopeIndex(conf, "MYSCOPE")], "abc"));
+
+    freeAll();
     return 0;
 }

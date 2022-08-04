@@ -1,3 +1,5 @@
 test.c
 test.cpp
 test
+.vscode/
+.gitignore
