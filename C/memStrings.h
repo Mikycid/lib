@@ -28,8 +28,7 @@ static void store(char **str, char **strArr, size_t strArrLength, char free_p, c
     static size_t *yLength;
 
     static size_t maxiStoreLength;
-    static size_t x, *y, **z;
-    static size_t w;
+    static size_t x, *y, *z;
 
     if(storageLength && str && oldAddress)
     {
@@ -40,6 +39,11 @@ static void store(char **str, char **strArr, size_t strArrLength, char free_p, c
             reIndex((void**)storage, storageLength, index);
             storageLength--;
         }
+    }
+
+    if(storageLengthX && strArr)
+    {
+
     }
 
     if(freeOne)
@@ -99,11 +103,23 @@ static void store(char **str, char **strArr, size_t strArrLength, char free_p, c
 
         if(strArr && storageLengthX)
         {
-            storageArr = (char ***) realloc(storageArr, (storageLengthX + 1) * sizeof(char**));
+            char strPtr[32];
+            sprintf(strPtr, "%p", strArr);
+            long index = getIndex(strPtr, (void**)storageArr, storageLengthX);
+            if(index >= 0)
+            {
+                return;
+            }
+            else
+            {
+              
+                storageArr = (char ***) realloc(storageArr, (storageLengthX + 1) * sizeof(char**));
 
-            if(storageArr == NULL)
-                printf("Failed to allocate");
-            yLength = (size_t *) realloc(yLength, (storageLengthX + 1) * sizeof(size_t));
+                if(storageArr == NULL)
+                    printf("Failed to allocate");
+                yLength = (size_t *) realloc(yLength, (storageLengthX + 1) * sizeof(size_t));
+              
+            }
         }
 
         if(strArr)
@@ -113,6 +129,8 @@ static void store(char **str, char **strArr, size_t strArrLength, char free_p, c
             storageArr[storageLengthX] = strArr;
             yLength[storageLengthX] = strArrLength;
 
+            printf("on stocke %s, la taille : %lu et pourtant %lu\n", strArr[0], yLength[storageLengthX], strArrLength);
+            storageLengthX++;
             
         }
 
@@ -120,16 +138,15 @@ static void store(char **str, char **strArr, size_t strArrLength, char free_p, c
         {
             maxiStore = (char ****) malloc(sizeof(char***));
             y = (size_t *) malloc(sizeof(size_t));
-            z = (size_t **) malloc(sizeof(size_t *));
+            z = (size_t *) malloc(sizeof(size_t ));
             x = 0;
-            w = 0;
         }
 
         if(maxiDest && x)
         {
-            maxiStore = (char ****) realloc(maxiDest, sizeof(char***) * (x + 1));
+            maxiStore = (char ****) realloc(maxiStore, sizeof(char***) * (x + 1));
             y = (size_t *) realloc(y, sizeof(size_t) * (x + 1));
-            z = (size_t **) realloc(z, sizeof(size_t *) * (x + 1) * w);
+            z = (size_t *) realloc(z, sizeof(size_t) * (x + 1));
             x++;
         }
 
@@ -137,14 +154,7 @@ static void store(char **str, char **strArr, size_t strArrLength, char free_p, c
         {
             maxiStore[x] = maxiDest;
             y[x] = maxiDestInnerLength;
-            for(size_t i = 0; i < maxiDestInnerInnerMax; i++)
-            {
-                if(!i)
-                    z[x] = malloc(maxiDestInnerInnerMax);
-                z[x][w] = i;
-                printf("test\n");
-                w++;
-            }
+            z[x] = maxiDestInnerInnerMax;
             x += 1;
         }
 
@@ -153,15 +163,19 @@ static void store(char **str, char **strArr, size_t strArrLength, char free_p, c
     {
         for(size_t i = 0; i < storageLength; i++)
         {
+            printf("on free %s\n", storage[i]);
             if(storage[i])
                 free(storage[i]);
         }
         for(size_t i = 0; i < storageLengthX; i++)
         {
+            printf("dans la boucle ...\n");
             if(storageArr[i])
             {
                 for(size_t j = 0; j <= yLength[i]; j++)
                 {
+                    printf("j : %lu, size : %lu\n", j, yLength[i]);
+                    printf("on free %s ! \n", storageArr[i][j]);
                     if(storageArr[i][j])
                         free(storageArr[i][j]);
                 }
@@ -177,9 +191,8 @@ static void store(char **str, char **strArr, size_t strArrLength, char free_p, c
             {
                 for(size_t j = 0; j <= y[i]; j++)
                 {
-                    for(size_t k = 0; k < w; k++)
+                    for(size_t k = 0; k <= z[i]; k++)
                     {
-                        printf("on free %s", maxiStore[i][j][k]);
                         if(maxiStore[i][j][k])
                             free(maxiStore[i][j][k]);
                     }
@@ -196,17 +209,15 @@ static void store(char **str, char **strArr, size_t strArrLength, char free_p, c
         if(storageLengthX)
         {
             free(storageArr);
-
-        }
-        if(storageLengthX)
-        {
-
             free(yLength);
+
         }
 
         if(x)
         {
             free(maxiStore);
+            free(y);
+            free(z);
         }
         storageArr = NULL;
         storage = NULL;
@@ -319,22 +330,14 @@ static void assign(char *__restrict__ src, char **__restrict__ dest)
     store(dest, NULL, 0, false, oldAddress, NULL, NULL, 0, 0);
 }
 
-static void assign_gc(char **__restrict__ src, char ****__restrict__ dest, size_t srcSize, size_t destSize)
+static void assign_gc(char **__restrict__ src, char ***__restrict__ dest, size_t srcSize, size_t destSize)
 {
-    printf("la taille : %lu\n", destSize);
-    if(destSize > 0)
-    {
-        *dest = (char ***) realloc(dest, sizeof(char **) * (destSize + 1));
-    }
-    else
-    {
-        *dest = (char ***) malloc(sizeof(char **));
-    }
+    
+    *dest = (char**) malloc(sizeof(char *) * srcSize);
 
-    *dest[destSize] = src;
-    printf("la valeur : %s\n", *dest[destSize][0]);
-    printf("l'adresse : %p\n", *dest);
-    store(NULL, NULL, 0, 0, NULL, NULL, *dest, destSize, srcSize);
+    *dest = src;
+    printf("la srcSize : %lu", srcSize);
+    store(NULL, *dest, srcSize, 0, NULL, NULL, NULL, 0, 0);
 }
 
 static char *concat(char *__restrict__ str1, char *__restrict__ str2, size_t sizeofStr1, size_t sizeofStr2)
@@ -362,10 +365,12 @@ static char *concat(char *__restrict__ str1, char *__restrict__ str2, size_t siz
 
 static long getIndex(char *__restrict__ ptr, void **__restrict__ arr, size_t arrLength)
 {
+    printf("le pointeur : %p\n", ptr);
     for(long i = 0; i < arrLength; i++)
     {
         char strPtr[64];
         sprintf(strPtr, "%p", arr[i]);
+        printf("a l'interieur : %s\n", strPtr);
         if(strcmp(strPtr, ptr) == 0)
         {
             return i;
