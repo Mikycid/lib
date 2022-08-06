@@ -397,6 +397,7 @@ static int sum(int *arr, size_t arrLength)
     return result;
 }
 
+#ifndef __cplusplus
 
 static void split(char *__restrict__ src, size_t sizeDest, char dest[][sizeDest], size_t size, char* __restrict__ sep, size_t sepSize)
 {
@@ -430,5 +431,41 @@ static void split(char *__restrict__ src, size_t sizeDest, char dest[][sizeDest]
     memset(dest[nSplit], 0, sizeDest);
     memcpy(dest[nSplit], current, size);
 }
+
+#else
+    template<size_t sizeDest>
+    static void split(char *__restrict__ src, char dest[][sizeDest], size_t size, char* __restrict__ sep, size_t sepSize)
+    {
+        // Split a string by sep, insert the result into a 2D array
+        char current[size];
+
+        memset(current, 0, size);
+        size_t nFound = 0, nSplit = 0, nMinus = 0;
+
+        for(size_t i = 0; i < strlen(src); i++)
+        {
+            current[i - nMinus] = src[i];
+            if(current[i - nMinus] == sep[nFound])
+            {
+                nFound++;
+                if(nFound == sepSize - 1)
+                {
+                    memset(dest[nSplit], 0, sizeDest);
+                    memcpy(dest[nSplit], current, i - nMinus - nFound + 1);
+                    memset(current, 0, size);
+                    nMinus = i + 1;
+                    nSplit++;
+                    nFound = 0;
+                }
+            } else {
+                nFound = 0;
+            }
+
+        }
+
+        memset(dest[nSplit], 0, sizeDest);
+        memcpy(dest[nSplit], current, size);
+    }
+#endif
 
 #endif

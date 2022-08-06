@@ -69,7 +69,7 @@ void getConfVariable(char **__restrict__ dst, Config *conf, char *scopeName, cha
 
 Config *readConf(char *path)
 {
-    Config *conf = malloc(sizeof(conf));
+    Config *conf = (Config *) malloc(sizeof(conf));
     FILE *fp = fopen(path, "rb");
     ssize_t read;
     if(fp == NULL)
