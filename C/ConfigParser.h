@@ -38,26 +38,19 @@ void freeConf(Config *conf)
 void getConfVariable(char **__restrict__ dst, Config *conf, char *scopeName, char *varName)
 {
     size_t index = 0;
-    printf("l'adresse : %p\n", conf);
 
     for(size_t i = 0; i < conf->nScopes; i++)
     {
-        printf("avant la scope..\n");
-        printf("test de la scope : %s\n", conf->scopes[i]->name);
         if(strcmp(conf->scopes[i]->name, scopeName) == 0)
         {
-            printf("trouvé : %lu\n", i);
             Scope *scope = conf->scopes[i];
             
-            printf("les variables sont OK : %s et size : %lu\n", scope->name, scope->nVariables);
             for(size_t j = 0; j < scope->nVariables; j++)
             {
-                printf("dans la scope la var %s c'est %s\n", scope->variables[j][0], scope->variables[j][1]);
                 if(strcmp(scope->variables[j][0], varName) == 0)
                 {
                     assign(scope->variables[j][1], dst);
 
-                    printf("trouvé !!! dans dst on a : %s\n", *dst);
                     return;
                 }
             }
@@ -65,6 +58,35 @@ void getConfVariable(char **__restrict__ dst, Config *conf, char *scopeName, cha
         }
     }
     return;
+}
+
+void writeConf(Config *conf, char *__restrict__ path)
+{
+    FILE *fp = fopen(path, "w");
+
+    for(size_t i = 0; i < conf->nScopes; i++)
+    {
+        Scope *scope = conf->scopes[i];
+        char *name1 = concat("[", conf->scopes[i]->name, strlen("["), strlen(conf->scopes[i]->name));
+        char *name2 = concat(name1, "]", strlen(name1), strlen("]"));
+        char *nameFinal = concat(name2, "\n", strlen(name2), strlen("\n"));
+        fputs(nameFinal, fp);
+        for(size_t j = 0; j < scope->nVariables; j++)
+        {
+            char *str1 = concat(scope->variables[j][0], "=", strlen(scope->variables[j][0]), strlen("="));
+            char *str2 = concat(str1, scope->variables[j][1], strlen(str1), strlen(scope->variables[j][1]));
+            char *strFinal = concat(str2, "\n", strlen(str2), strlen("\n"));
+            fputs(strFinal, fp);
+            freeOne(str1);
+            freeOne(str2);
+            freeOne(strFinal);
+        }
+        freeOne(name1);
+        freeOne(name2);
+        freeOne(nameFinal);
+    }
+    printf("Tout va bien\n");
+    fclose(fp);
 }
 
 Config *readConf(char *path)
@@ -118,12 +140,12 @@ Config *readConf(char *path)
                 }
 
                 nScopes++;
-                printf("passé la scope %d\n", nScopes);
+
                 conf->scopes[nScopes] = (Scope *) malloc(sizeof(Scope));
                 
                 assign(line, (char**)&conf->scopes[nScopes]->name);
                 conf->scopes[nScopes]->nVariables = 0;
-                printf("apres assigner : %d : %s\n", nScopes, conf->scopes[nScopes]->name);
+                
                 memset(line, '\0', strlen(line));
                 counter = 0;
 
@@ -151,7 +173,7 @@ Config *readConf(char *path)
                     conf->scopes[nScopes]->variables = (char ***) realloc(conf->scopes[nScopes]->variables, sizeof(char ***) * conf->scopes[nScopes]->nVariables);
                 else
                     conf->scopes[nScopes]->variables = (char ***) malloc(sizeof(char ***));
-                assign_gc(variable, &conf->scopes[nScopes]->variables[conf->scopes[nScopes]->nVariables], 2, conf->scopes[nScopes]->nVariables);
+                assign_ca(variable, &conf->scopes[nScopes]->variables[conf->scopes[nScopes]->nVariables], 2);
 
                 conf->scopes[nScopes]->nVariables++;
             }

@@ -12,6 +12,25 @@
 #endif
 
 
+/*
+    This lib makes it easy to do string operation on char type.
+    Everything allocated dynamically gets stored in an array, and can be freed whenever needed
+    just by calling freeAll()
+    Every function called using dynamic allocation is not freed, you have to call the freeAll() when you no longer need the memory.
+    You can also use freeOne() if you want to free just one variable.
+    Never free yourself without one of those funcs or it'll result in an unpredictable behaviour.
+
+    List of dynamic allocation methods :
+        - dynamicSplit
+        - assign
+        - assign_c
+        - assign_gc
+        - concat
+
+    List of non-dynamic methods :
+        - split
+*/
+
 static long getIndex(char *__restrict__ ptr, void **__restrict__ arr, size_t arrLength);
 static void reIndex(void **arr, size_t arrLength, size_t index);
 static int sum(int *arr, size_t arrLength);
@@ -21,6 +40,10 @@ static void assing_gc(char **__restrict__ src, char ***__restrict__ dst, size_t 
 
 static void store(char **str, char **strArr, size_t strArrLength, char free_p, char *oldAddress, void *freeOne, char ***maxiDest, size_t maxiDestInnerLength, size_t maxiDestInnerInnerMax)
 {
+    /*
+        This is the function that stores every variable dynamically allocated, 
+        it's meant to be used by the other functions of the library.
+    */
     static char ****maxiStore;
     static char ***storageArr;
     static char **storage;
@@ -41,11 +64,6 @@ static void store(char **str, char **strArr, size_t strArrLength, char free_p, c
         }
     }
 
-    if(storageLengthX && strArr)
-    {
-
-    }
-
     if(freeOne)
     {
         char strPtr[32];
@@ -54,9 +72,13 @@ static void store(char **str, char **strArr, size_t strArrLength, char free_p, c
 
         if(index >= 0)
         {
+            printf("on free %s a l'adresse %p\n", storage[index], storage[index]);
+            printf("taille du storage : %lu\n", storageLength);
             free(storage[index]);
             reIndex((void**)storage, storageLength, index);
             storageLength--;
+
+            printf("taille du storage apres : %lu\n", storageLength);
         }
         else 
         {
@@ -90,6 +112,7 @@ static void store(char **str, char **strArr, size_t strArrLength, char free_p, c
         {
             //storage[storageLength] = (char*) malloc(strlen(*str) * sizeof(char));
             //memset(storage[storageLength], 0, strlen(*str) * sizeof(char));
+            printf("on store %s a l'index %lu\n", *str, storageLength);
             storage[storageLength] = *str;
             storageLength++;
         }
@@ -129,7 +152,6 @@ static void store(char **str, char **strArr, size_t strArrLength, char free_p, c
             storageArr[storageLengthX] = strArr;
             yLength[storageLengthX] = strArrLength;
 
-            printf("on stocke %s, la taille : %lu et pourtant %lu\n", strArr[0], yLength[storageLengthX], strArrLength);
             storageLengthX++;
             
         }
@@ -161,21 +183,19 @@ static void store(char **str, char **strArr, size_t strArrLength, char free_p, c
     }
     else
     {
+        printf("storage length : %lu\n", storageLength);
         for(size_t i = 0; i < storageLength; i++)
         {
-            printf("on free %s\n", storage[i]);
+            printf("on free %s a l'adresse %p\n",storage[i], storage[i]);
             if(storage[i])
                 free(storage[i]);
         }
         for(size_t i = 0; i < storageLengthX; i++)
         {
-            printf("dans la boucle ...\n");
             if(storageArr[i])
             {
                 for(size_t j = 0; j <= yLength[i]; j++)
                 {
-                    printf("j : %lu, size : %lu\n", j, yLength[i]);
-                    printf("on free %s ! \n", storageArr[i][j]);
                     if(storageArr[i][j])
                         free(storageArr[i][j]);
                 }
@@ -229,17 +249,20 @@ static void store(char **str, char **strArr, size_t strArrLength, char free_p, c
 
 static void freeAll()
 {
+    // Free every variable stored in the store
     store(NULL, NULL, 0, true, NULL, NULL, NULL, 0, 0);
 }
 
 static void freeOne(void *ptr)
 {
+    // Free one variable, you need to still have the address of the pointer
     store(NULL, NULL, 0, false, NULL, ptr, NULL, 0, 0);
 }
 
 static char **dynamicSplit(char *__restrict__ src, char* __restrict__ sep, size_t sepSize, uint32_t max)
 {
     // Split a string by sep, returns a 2D array with the result
+    // Use max for the maximum number of iterance
     size_t size = strlen(src);
     char current[size];
     size_t x = 5;
@@ -319,6 +342,14 @@ static char **dynamicSplit(char *__restrict__ src, char* __restrict__ sep, size_
 
 static void assign(char *__restrict__ src, char **__restrict__ dest)
 {
+    // This assigns a char pointer to a char destination
+    // To work you need to pass the address of the destination
+    // For example :
+    /*
+        char test[] = "test";
+        char *dst;
+        assign(test, &dst);
+    */
     char oldAddress[64];
     sprintf(oldAddress, "%p", *dest);
     char *tmp = (char *) malloc(strlen(src) * sizeof(char));
@@ -330,25 +361,56 @@ static void assign(char *__restrict__ src, char **__restrict__ dest)
     store(dest, NULL, 0, false, oldAddress, NULL, NULL, 0, 0);
 }
 
-static void assign_gc(char **__restrict__ src, char ***__restrict__ dest, size_t srcSize, size_t destSize)
+static void assign_c(const char *__restrict__ src, char **__restrict__ dest)
 {
-    
+    // This assigns a char array to a char destination, and stores the pointer.
+    // To work you need to pass the address of the destination
+    // For example :
+    /*
+        char test[4] = "test";
+        char *dst;
+        assign(test, &dst);
+    */
+    char oldAddress[128];
+    sprintf(oldAddress, "%p", *dest);
+
+    char *tmp = (char *) malloc(strlen(src) * sizeof(char));
+    memset(tmp, 0, strlen(src));
+    //strcpy(tmp, src);
+    strcat(tmp, src);
+    *dest = tmp;
+
+    store(dest, NULL, 0, false, oldAddress, NULL, NULL, 0, 0);
+}
+
+
+
+static void assign_ca(char **__restrict__ src, char ***__restrict__ dest, size_t srcSize)
+{
+    // This function assigns a char array to a destination, and stores the pointer
+    // To work you need to pass the address of the destination
+    // For example :
+    /*
+        char **test;
+        assign("test", test[0]);
+        assign("test2", test[1]);
+        char **dst;
+        assign_ca(test, &dst);
+    */
     *dest = (char**) malloc(sizeof(char *) * srcSize);
 
     *dest = src;
-    printf("la srcSize : %lu", srcSize);
+
     store(NULL, *dest, srcSize, 0, NULL, NULL, NULL, 0, 0);
 }
 
 static char *concat(char *__restrict__ str1, char *__restrict__ str2, size_t sizeofStr1, size_t sizeofStr2)
 {
+    /* This function adds str2 to the end of str1 */
     size_t totalSize = sizeofStr1 + sizeofStr2;
     char *result = (char*) malloc(totalSize);
+    memset(result, '\0', totalSize + 1);
 
-    printf("str 1 :%s\n", str1);
-    printf("%lu\n", sizeofStr1);
-    printf("str 2 : %s\n", str2);
-    printf("%lu\n", sizeofStr2);
     size_t i, j;
     for(i = 0; i < sizeofStr1; i++)
     {
@@ -356,8 +418,9 @@ static char *concat(char *__restrict__ str1, char *__restrict__ str2, size_t siz
     }
     for(j = 0; j < sizeofStr2; j++)
     {
-        result[i] = str2[j];
+        result[i+j] = str2[j];
     }
+    //printf("le resultat : %s\n", result);
     store(&result, NULL, 0, 0, NULL, NULL, NULL, 0, 0);
     return result;
 }
@@ -365,12 +428,13 @@ static char *concat(char *__restrict__ str1, char *__restrict__ str2, size_t siz
 
 static long getIndex(char *__restrict__ ptr, void **__restrict__ arr, size_t arrLength)
 {
-    printf("le pointeur : %p\n", ptr);
+    /* This function returns the index or the pointer ptr if it's contained in arr
+        ptr should be a char ptr, use sprintf to put one in
+    */
     for(long i = 0; i < arrLength; i++)
     {
         char strPtr[64];
         sprintf(strPtr, "%p", arr[i]);
-        printf("a l'interieur : %s\n", strPtr);
         if(strcmp(strPtr, ptr) == 0)
         {
             return i;
@@ -381,14 +445,16 @@ static long getIndex(char *__restrict__ ptr, void **__restrict__ arr, size_t arr
 
 static void reIndex(void **arr, size_t arrLength, size_t index)
 {
-    for(size_t i = 0; i < arrLength; i++)
+    // This function reIndex an array from index to arrLength
+    for(size_t i = index; i < arrLength; i++)
     {
-        arr[index] = arr[index + 1];
+        arr[i] = arr[i + 1];
     }
 }
 
 static int sum(int *arr, size_t arrLength)
 {
+    // Returns the sum of an integer array
     int result = 0;
     for(size_t i = 0; i <= arrLength; i++)
     {
@@ -433,6 +499,9 @@ static void split(char *__restrict__ src, size_t sizeDest, char dest[][sizeDest]
 }
 
 #else
+
+
+
     template<size_t sizeDest>
     static void split(char *__restrict__ src, char dest[][sizeDest], size_t size, char* __restrict__ sep, size_t sepSize)
     {
@@ -466,6 +535,8 @@ static void split(char *__restrict__ src, size_t sizeDest, char dest[][sizeDest]
         memset(dest[nSplit], 0, sizeDest);
         memcpy(dest[nSplit], current, size);
     }
+
+
 #endif
 
 #endif

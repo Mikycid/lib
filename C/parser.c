@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "parser.h"
+#include "ConfigParser.h"
 
 
 int main(int argc, char* argv[])
@@ -9,6 +9,8 @@ int main(int argc, char* argv[])
     char *var;
     getConfVariable(&var, conf, "SCOPE2", "COP");
     printf("var : %s\n", var);
+
+    writeConf(conf, "./hello.txt");
 
     freeAll();
     freeConf(conf);
