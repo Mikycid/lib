@@ -10,9 +10,7 @@
     You can add tasks into the main pool by using createTask(func, **args)
     For network operation there is an off thread created which can run those in an asyncio manner,
     you can use getLoop(*ThreadPool) and then use the loop like loop(func, **args) to have your network I/O operations running on 1 thread only
-    Don't forget to free the pool with destroyPool(*ThreadPool) when you finished the operations.
-    Basically the queue size is of 20, you can define a queue size by using the INIT_QUEUE_SIZE macro if you know that there will be more elements from start
-    Anyway if the queue happen to have more than 20 elements it will start reallocate more memory with currentSize * 2 every time
+    Don't forget to free the pool with freePool(*ThreadPool) when you finished the operations.
 */
 
 
@@ -20,18 +18,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
+#include <setjmp.h>
 
-struct ThreadPool;
+
 
 typedef void (*thread_func)(void *args);
 
-typedef struct EventLoop {
-    pthread_t thread;
-    thread_func *queue;
-    void **argsQueue;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-} EventLoop;
 
 typedef struct Task {
     thread_func func;
@@ -43,30 +36,25 @@ typedef struct Task {
 typedef struct ThreadPool
 {
     pthread_cond_t cond;
+    pthread_cond_t working;
     pthread_mutex_t mutex;
     pthread_t *threads;
     size_t nThreads;
     Task *next;
     Task *last;
-    size_t gap;
-    size_t queueSize;
-    thread_func *queue;
-    void **argsQueue;
     size_t queueLength;
-    EventLoop *loop;
+    char stop;
 } ThreadPool;
 
-void *mainLoop(void *args)
-{
-    EventLoop *myContext = (EventLoop *) args;
-    pthread_mutex_init(&myContext->mutex, NULL);
-    pthread_cond_init(&myContext->cond, NULL);
-    while(1)
-    {
-        pthread_cond_wait(&myContext->cond, &myContext->mutex);
-    }
-    return NULL;
-}
+void *poolWorker(void *args);
+ThreadPool *createPool(size_t nThreads);
+void createTask(ThreadPool *pool, thread_func func, void *args);
+void joinPool(ThreadPool *pool);
+void freePool(ThreadPool *pool);
+void waitAll(ThreadPool *pool);
+
+
+
 
 void *poolWorker(void *args)
 {
@@ -76,20 +64,21 @@ void *poolWorker(void *args)
     while (1) {
 
         printf("on attend\n");
-        while(myContext->next == NULL)
+        while(myContext->next == NULL && !myContext->stop)
             pthread_cond_wait(&myContext->cond, &myMutex);
         printf("on attend plus\n");
         
+        if(myContext->stop && myContext->queueLength == 0)
+            break;
 
         int mt = pthread_mutex_lock(&myContext->mutex);
         if(mt != 0)
             printf("mutex didnt work\n");
 
         Task *task = myContext->next;
-
-        myContext->queueLength--;
         if(task != NULL)
         {
+            
             int inner_mt = pthread_mutex_trylock(&task->mutex);
             if(inner_mt != 0)
             {
@@ -97,22 +86,24 @@ void *poolWorker(void *args)
                 pthread_mutex_unlock(&myContext->mutex);
                 continue;
             } 
-
+            myContext->queueLength--;
+            myContext->next = task->next;
             pthread_mutex_unlock(&myContext->mutex);
+
             thread_func func = task->func;
             void *args = task->args;
 
 
 
             func(args);
-
-            myContext->next = myContext->next->next;
+            pthread_cond_signal(&myContext->working);
             pthread_mutex_destroy(&task->mutex);
             free(task);
         }
 
     }
     pthread_mutex_destroy(&myMutex);
+    printf("thread destroy !\n");
     return NULL;
 }
 
@@ -120,16 +111,15 @@ ThreadPool *createPool(size_t nThreads)
 {
     ThreadPool *pool = (ThreadPool *) malloc(sizeof(ThreadPool));
 
-    pool->queueSize = 20;
-    pool->argsQueue = (void **) malloc(sizeof(void *) * pool->queueSize);
-    pool->queue = (thread_func *) malloc(sizeof(thread_func) * pool->queueSize);
     pool->threads = (pthread_t *) malloc(sizeof(pthread_t) * nThreads);
     pool->nThreads = nThreads;
     pool->next = NULL;
     pool->last = NULL;
+    pool->stop = 0;
     pool->queueLength = 0;
 
     pthread_cond_init(&pool->cond, NULL);
+    pthread_cond_init(&pool->working, NULL);
     if(pthread_mutex_init(&pool->mutex, NULL) != 0)
     {
         printf("mutex initialization failed\n");
@@ -140,22 +130,18 @@ ThreadPool *createPool(size_t nThreads)
         printf("tentative de créer\n");
         pthread_create(&pool->threads[i], NULL, poolWorker, (void *)pool);
         printf("thread %lu créé\n", i);
-        //pthread_cond_wait(&pool->available, &pool->mutex);
     }
-    pool->loop = (EventLoop *) malloc(sizeof(EventLoop));
-    pthread_create(&pool->loop->thread, NULL, mainLoop, (void *)pool->loop);
 
-    //pthread_mutex_unlock(&pool->mutex);
     return pool;
 }
 
 void createTask(ThreadPool *pool, thread_func func, void *args) {
-    /*if(!pool->sleepyThreads)
+
+    if(pool->stop)
     {
-        printf("j'attend : il y a %d threads dispo\n", pool->sleepyThreads);
-        pthread_cond_wait(&pool->available, &pool->mutex);
-        printf("create task libéré !\n");
-    }*/
+        printf("Could not create task %s : pool has been stopped", (char *) func);
+        return;
+    }
     
     int mt = pthread_mutex_lock(&pool->mutex);
 
@@ -201,14 +187,42 @@ void freePool(ThreadPool *pool)
         free(pool->threads[i]);
     }*/
 
+    while(pool->next != NULL)
+    {
+        Task *current = pool->next;
+        pool->next = current->next;
+        pthread_mutex_destroy(&current->mutex);
+        free(current);
+    }
+
     pthread_cond_destroy(&pool->cond);
+    pthread_cond_destroy(&pool->working);
     pthread_mutex_destroy(&pool->mutex);
     free(pool->threads);
-    free(pool->argsQueue);
-    free(pool->queue);
-    free(pool->loop);
     free(pool);
 
+}
+
+void waitAll(ThreadPool *pool)
+{
+    while(pool->queueLength > 0)
+    {
+        printf("On attend les %lu derniers\n", pool->queueLength);
+        pthread_cond_wait(&pool->working, &pool->mutex);
+        printf("fini d'attendre\n");
+        pthread_cond_broadcast(&pool->cond);
+    }
+}
+
+void joinPool(ThreadPool *pool)
+{
+    // If wait, every task in the queue will be waited to end before the application may stop,
+    // Else, it's the same as freePool
+
+    pool->stop = 1;
+    waitAll(pool);
+
+    freePool(pool);
 }
 
 #endif
