@@ -17,9 +17,6 @@
 #include <pthread.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdio.h>
-#include <time.h>
-#include <setjmp.h>
 
 
 
@@ -46,17 +43,17 @@ typedef struct ThreadPool
     char stop;
 } ThreadPool;
 
-void *poolWorker(void *args);
-ThreadPool *createPool(size_t nThreads);
-void createTask(ThreadPool *pool, thread_func func, void *args);
-void joinPool(ThreadPool *pool);
-void freePool(ThreadPool *pool);
-void waitAll(ThreadPool *pool);
+inline void *poolWorker(void *args);
+inline ThreadPool *createPool(size_t nThreads);
+inline void createTask(ThreadPool *pool, thread_func func, void *args);
+inline void joinPool(ThreadPool *pool);
+inline void freePool(ThreadPool *pool);
+inline void waitAll(ThreadPool *pool);
 
 
 
 
-void *poolWorker(void *args)
+inline void *poolWorker(void *args)
 {
     ThreadPool *myContext = (ThreadPool *) args;
     pthread_mutex_t myMutex;
@@ -107,7 +104,7 @@ void *poolWorker(void *args)
     return NULL;
 }
 
-ThreadPool *createPool(size_t nThreads)
+inline ThreadPool *createPool(size_t nThreads)
 {
     ThreadPool *pool = (ThreadPool *) malloc(sizeof(ThreadPool));
 
@@ -135,7 +132,7 @@ ThreadPool *createPool(size_t nThreads)
     return pool;
 }
 
-void createTask(ThreadPool *pool, thread_func func, void *args) {
+inline void createTask(ThreadPool *pool, thread_func func, void *args) {
 
     if(pool->stop)
     {
@@ -180,7 +177,7 @@ void createTask(ThreadPool *pool, thread_func func, void *args) {
 
 }
 
-void freePool(ThreadPool *pool)
+inline void freePool(ThreadPool *pool)
 {
     /*for(size_t i = 0; i < pool->nThreads; i++)
     {
@@ -203,8 +200,10 @@ void freePool(ThreadPool *pool)
 
 }
 
-void waitAll(ThreadPool *pool)
+inline void waitAll(ThreadPool *pool)
 {
+
+    pthread_cond_broadcast(&pool->cond);
     while(pool->queueLength > 0)
     {
         printf("On attend les %lu derniers\n", pool->queueLength);
@@ -214,7 +213,7 @@ void waitAll(ThreadPool *pool)
     }
 }
 
-void joinPool(ThreadPool *pool)
+inline void joinPool(ThreadPool *pool)
 {
     // If wait, every task in the queue will be waited to end before the application may stop,
     // Else, it's the same as freePool

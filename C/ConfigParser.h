@@ -7,6 +7,10 @@
 
 #include "memStrings.h"
 
+#ifdef __cpluscplus
+    using namespace memStrings;
+#endif
+
 typedef struct Scope
 {
     char *name;
@@ -21,46 +25,55 @@ typedef struct Config
     size_t nScopes;
 } Config;
 
-void addScopeVariable(Scope *scope, char **var)
+inline void addScopeVariable(Scope *scope, char **var)
 {
     scope->variables[scope->nVariables] = var;
     scope->nVariables++;
 }
 
-void freeConf(Config *conf)
+inline void freeConf(Config *conf)
 {
     for(size_t i = 0; i < conf->nScopes; i++)
     {
+        freeOne(conf->scopes[i]->name);
+        freeOne(conf->scopes[i]->variables);
         free(conf->scopes[i]);
     }
 }
 
-void getConfVariable(char **__restrict__ dst, Config *conf, char *scopeName, char *varName)
+inline void getConfVariable(char **__restrict__ dst, Config *conf, char *scopeName, char *varName)
 {
     size_t index = 0;
-
+    
+    printf("demande : scope: %s, varname : %s\n", scopeName, varName);
     for(size_t i = 0; i < conf->nScopes; i++)
     {
-        if(strcmp(conf->scopes[i]->name, scopeName) == 0)
+
+        printf("name de la scope : %s\n", conf->scopes[i]->name);
+        if(memcmp(conf->scopes[i]->name, scopeName, strlen(scopeName)) == 0)
         {
+            printf("ben oui c'est égal !!\n");
             Scope *scope = conf->scopes[i];
-            
             for(size_t j = 0; j < scope->nVariables; j++)
             {
-                if(strcmp(scope->variables[j][0], varName) == 0)
+                printf("la variable : %s\n", scope->variables[j][0]);
+                if(memcmp(scope->variables[j][0], varName, strlen(varName)) == 0)
                 {
+                    printf("on a trouvé : %s\n", scope->variables[j][1]);
                     assign(scope->variables[j][1], dst);
 
                     return;
                 }
             }
+            *dst = NULL;
             return;
         }
     }
+    *dst = NULL;
     return;
 }
 
-void writeConf(Config *conf, char *__restrict__ path)
+inline void writeConf(Config *conf, char *__restrict__ path)
 {
     FILE *fp = fopen(path, "w");
 
@@ -89,13 +102,17 @@ void writeConf(Config *conf, char *__restrict__ path)
     fclose(fp);
 }
 
-Config *readConf(char *path)
+inline Config *readConf(char *path)
 {
     Config *conf = (Config *) malloc(sizeof(conf));
     FILE *fp = fopen(path, "rb");
     ssize_t read;
     if(fp == NULL)
+    {
+
+        printf("Failed to load %s\n", path);
         exit(1);
+    }
 
     char *line = (char*) malloc(100);
     int current;

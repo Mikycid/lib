@@ -354,7 +354,7 @@ static void assign(char *__restrict__ src, char **__restrict__ dest)
     sprintf(oldAddress, "%p", *dest);
     char *tmp = (char *) malloc(strlen(src) * sizeof(char));
 
-    memset(tmp, 0, strlen(src));
+    memset(tmp, '\0', strlen(src));
     strcat(tmp, src);
     *dest = tmp;
 
@@ -375,7 +375,7 @@ static void assign_c(const char *__restrict__ src, char **__restrict__ dest)
     sprintf(oldAddress, "%p", *dest);
 
     char *tmp = (char *) malloc(strlen(src) * sizeof(char));
-    memset(tmp, 0, strlen(src));
+    memset(tmp, '\0', strlen(src));
     //strcpy(tmp, src);
     strcat(tmp, src);
     *dest = tmp;
