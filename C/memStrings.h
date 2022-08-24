@@ -72,13 +72,10 @@ static void store(char **str, char **strArr, size_t strArrLength, char free_p, c
 
         if(index >= 0)
         {
-            printf("on free %s a l'adresse %p\n", storage[index], storage[index]);
-            printf("taille du storage : %lu\n", storageLength);
             free(storage[index]);
             reIndex((void**)storage, storageLength, index);
             storageLength--;
 
-            printf("taille du storage apres : %lu\n", storageLength);
         }
         else 
         {
@@ -112,7 +109,6 @@ static void store(char **str, char **strArr, size_t strArrLength, char free_p, c
         {
             //storage[storageLength] = (char*) malloc(strlen(*str) * sizeof(char));
             //memset(storage[storageLength], 0, strlen(*str) * sizeof(char));
-            printf("on store %s a l'index %lu\n", *str, storageLength);
             storage[storageLength] = *str;
             storageLength++;
         }
@@ -183,10 +179,8 @@ static void store(char **str, char **strArr, size_t strArrLength, char free_p, c
     }
     else
     {
-        printf("storage length : %lu\n", storageLength);
         for(size_t i = 0; i < storageLength; i++)
         {
-            printf("on free %s a l'adresse %p\n",storage[i], storage[i]);
             if(storage[i])
                 free(storage[i]);
         }

@@ -17,7 +17,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <stdlib.h>
-
+#include <stdio.h>
 
 
 typedef void (*thread_func)(void *args);
@@ -27,7 +27,6 @@ typedef struct Task {
     thread_func func;
     void *args;
     struct Task *next;
-    pthread_mutex_t mutex;
 } Task;
 
 typedef struct ThreadPool
@@ -43,46 +42,34 @@ typedef struct ThreadPool
     char stop;
 } ThreadPool;
 
-inline void *poolWorker(void *args);
-inline ThreadPool *createPool(size_t nThreads);
-inline void createTask(ThreadPool *pool, thread_func func, void *args);
-inline void joinPool(ThreadPool *pool);
-inline void freePool(ThreadPool *pool);
-inline void waitAll(ThreadPool *pool);
+static inline void *poolWorker(void *args);
+static inline ThreadPool *createPool(size_t nThreads);
+static inline void createTask(ThreadPool *pool, thread_func func, void *args);
+static inline void joinPool(ThreadPool *pool);
+static inline void freePool(ThreadPool *pool);
+static inline void waitAll(ThreadPool *pool);
 
 
 
 
-inline void *poolWorker(void *args)
+static inline void *poolWorker(void *args)
 {
     ThreadPool *myContext = (ThreadPool *) args;
-    pthread_mutex_t myMutex;
-    pthread_mutex_init(&myMutex, NULL);
     while (1) {
+        pthread_mutex_lock(&myContext->mutex);
 
-        printf("on attend\n");
         while(myContext->next == NULL && !myContext->stop)
-            pthread_cond_wait(&myContext->cond, &myMutex);
-        printf("on attend plus\n");
+            pthread_cond_wait(&myContext->cond, &myContext->mutex);
         
         if(myContext->stop && myContext->queueLength == 0)
             break;
 
-        int mt = pthread_mutex_lock(&myContext->mutex);
-        if(mt != 0)
-            printf("mutex didnt work\n");
 
         Task *task = myContext->next;
         if(task != NULL)
         {
             
-            int inner_mt = pthread_mutex_trylock(&task->mutex);
-            if(inner_mt != 0)
-            {
 
-                pthread_mutex_unlock(&myContext->mutex);
-                continue;
-            } 
             myContext->queueLength--;
             myContext->next = task->next;
             pthread_mutex_unlock(&myContext->mutex);
@@ -94,17 +81,19 @@ inline void *poolWorker(void *args)
 
             func(args);
             pthread_cond_signal(&myContext->working);
-            pthread_mutex_destroy(&task->mutex);
             free(task);
+        }
+        else
+        {
+            pthread_mutex_unlock(&myContext->mutex);
         }
 
     }
-    pthread_mutex_destroy(&myMutex);
     printf("thread destroy !\n");
     return NULL;
 }
 
-inline ThreadPool *createPool(size_t nThreads)
+static inline ThreadPool *createPool(size_t nThreads)
 {
     ThreadPool *pool = (ThreadPool *) malloc(sizeof(ThreadPool));
 
@@ -124,60 +113,46 @@ inline ThreadPool *createPool(size_t nThreads)
 
     for(size_t i = 0; i < nThreads; i++)
     {
-        printf("tentative de créer\n");
         pthread_create(&pool->threads[i], NULL, poolWorker, (void *)pool);
-        printf("thread %lu créé\n", i);
     }
 
     return pool;
 }
 
-inline void createTask(ThreadPool *pool, thread_func func, void *args) {
+static inline void createTask(ThreadPool *pool, thread_func func, void *args) {
 
     if(pool->stop)
     {
         printf("Could not create task %s : pool has been stopped", (char *) func);
         return;
     }
-    
-    int mt = pthread_mutex_lock(&pool->mutex);
-
-    if(mt != 0)
-        printf("mutex inside createtask didnt work\n");
+    Task *task = (Task *) malloc(sizeof(Task));
+    task->func = func;
+    task->args = args;
+    task->next = NULL;
+    pthread_mutex_lock(&pool->mutex);
 
     if(pool->next == NULL)
     {
-        pool->next = (Task *) malloc(sizeof(Task));
-        pool->next->func = func;
-        pool->next->args = args;
-        pthread_mutex_init(&pool->next->mutex, NULL);
-        pool->next->next = pool->last;
+        pool->next = task;
         pool->last = pool->next;
     }
     else
     {
-        pool->last->next = (Task *) malloc(sizeof(Task));
-        pool->last->next->func = func;
-        pool->last->next->args = args;
-
-        pthread_mutex_init(&pool->last->next->mutex, NULL);
-        pool->last->next->next = NULL;
-        pool->last = pool->last->next;
+        pool->last->next = task;
+        pool->last = task;
     }
 
 
     pool->queueLength++;
 
-    pthread_cond_signal(&pool->cond);
-    int rmt = pthread_mutex_unlock(&pool->mutex);
-
-    if(rmt != 0)
-        printf("mutex release inside createtask didnt work\n");
+    pthread_cond_broadcast(&pool->cond);
+    pthread_mutex_unlock(&pool->mutex);
 
 
 }
 
-inline void freePool(ThreadPool *pool)
+static inline void freePool(ThreadPool *pool)
 {
     /*for(size_t i = 0; i < pool->nThreads; i++)
     {
@@ -188,7 +163,6 @@ inline void freePool(ThreadPool *pool)
     {
         Task *current = pool->next;
         pool->next = current->next;
-        pthread_mutex_destroy(&current->mutex);
         free(current);
     }
 
@@ -200,7 +174,7 @@ inline void freePool(ThreadPool *pool)
 
 }
 
-inline void waitAll(ThreadPool *pool)
+static inline void waitAll(ThreadPool *pool)
 {
 
     pthread_cond_broadcast(&pool->cond);
@@ -208,12 +182,11 @@ inline void waitAll(ThreadPool *pool)
     {
         printf("On attend les %lu derniers\n", pool->queueLength);
         pthread_cond_wait(&pool->working, &pool->mutex);
-        printf("fini d'attendre\n");
         pthread_cond_broadcast(&pool->cond);
     }
 }
 
-inline void joinPool(ThreadPool *pool)
+static inline void joinPool(ThreadPool *pool)
 {
     // If wait, every task in the queue will be waited to end before the application may stop,
     // Else, it's the same as freePool

@@ -45,21 +45,16 @@ inline void getConfVariable(char **__restrict__ dst, Config *conf, char *scopeNa
 {
     size_t index = 0;
     
-    printf("demande : scope: %s, varname : %s\n", scopeName, varName);
     for(size_t i = 0; i < conf->nScopes; i++)
     {
 
-        printf("name de la scope : %s\n", conf->scopes[i]->name);
         if(memcmp(conf->scopes[i]->name, scopeName, strlen(scopeName)) == 0)
         {
-            printf("ben oui c'est égal !!\n");
             Scope *scope = conf->scopes[i];
             for(size_t j = 0; j < scope->nVariables; j++)
             {
-                printf("la variable : %s\n", scope->variables[j][0]);
                 if(memcmp(scope->variables[j][0], varName, strlen(varName)) == 0)
                 {
-                    printf("on a trouvé : %s\n", scope->variables[j][1]);
                     assign(scope->variables[j][1], dst);
 
                     return;
@@ -98,7 +93,6 @@ inline void writeConf(Config *conf, char *__restrict__ path)
         freeOne(name2);
         freeOne(nameFinal);
     }
-    printf("Tout va bien\n");
     fclose(fp);
 }
 
