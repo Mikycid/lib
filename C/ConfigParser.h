@@ -41,7 +41,7 @@ inline void freeConf(Config *conf)
     }
 }
 
-inline void getConfVariable(char **__restrict__ dst, Config *conf, char *scopeName, char *varName)
+inline void getConfVariable(char **__restrict__ dst, Config *conf, const char *__restrict__ scopeName, const char *__restrict__ varName)
 {
     size_t index = 0;
     
@@ -65,7 +65,6 @@ inline void getConfVariable(char **__restrict__ dst, Config *conf, char *scopeNa
         }
     }
     *dst = NULL;
-    return;
 }
 
 inline void writeConf(Config *conf, char *__restrict__ path)
@@ -96,7 +95,7 @@ inline void writeConf(Config *conf, char *__restrict__ path)
     fclose(fp);
 }
 
-inline Config *readConf(char *path)
+inline Config *readConf(const char *path)
 {
     Config *conf = (Config *) malloc(sizeof(conf));
     FILE *fp = fopen(path, "rb");
