@@ -1,5 +1,5 @@
-#ifndef SIMD_LOOP_MULTI_COMPILER
-#define SIMD_LOOP_MULTI_COMPILER
+#ifndef UNROLL_LOOPS_MULTI_COMPILER
+#define UNROLL_LOOPS_MULTI_COMPILER
     /// Helper macros for stringification
     #define TO_STRING_HELPER(X)   #X
     #define TO_STRING(X)          TO_STRING_HELPER(X)
