@@ -1,10 +1,8 @@
-#ifndef DEF_CPP_RANGE
-#define DEF_CPP_RANGE
+#ifndef DEF_CPP_FASTRANGE
+#define DEF_CPP_FASTRANGE
 
-#include <vector>
 #include <cstdint>
 #include <cstddef>
-#include <cmath>
 #include <C/Performance/UnrollLoops.h>
 #include <CPP/Utils/TemplateAbs.hpp>
 
@@ -18,10 +16,10 @@ namespace Utils {
         };
     #endif
 
-
     template<typename T>
-    constexpr auto range(T min, T max, const uint32_t &__restrict__ step = 1, const RangeFlags flags = NONE) noexcept -> std::vector<T>
+    constexpr void fastRange(T &&min, T &&max, const T &__restrict__ step, const RangeFlags flags, int *__restrict__ dest) noexcept
     {
+        // Only use if you know the array length at compile time
 
         if(flags & INCLUDE_LAST)
         {
@@ -46,19 +44,13 @@ namespace Utils {
         size_t length = 0;
         const T realMin = std::min(min, max);
         const T realMax = std::max(min, max);
-        
-        std::vector<T> result;
-        result.resize(std::round(Utils::abs((realMax - realMin) / step)));
-
 
         UNROLL_LOOP(16)
-        for(auto &val : result)
+        for(T i = realMin; i < realMax; i += Utils::abs(step))
         {
-            //T i = realMin; i < realMax; i += Utils::abs(step)
-            val = length * step + realMin;
+            dest[length] = i;
             length++;
         }
-        return result;
         
     }
 };
