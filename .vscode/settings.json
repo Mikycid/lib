@@ -3,6 +3,8 @@
         "valarray": "cpp",
         "string": "cpp",
         "random": "cpp",
-        "threadpool.h": "c"
+        "threadpool.h": "c",
+        "unrollloops.h": "c",
+        "array": "cpp"
     }
 }
